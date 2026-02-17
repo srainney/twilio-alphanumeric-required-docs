@@ -1,0 +1,25 @@
+{
+  "name": "twilio-alphanumeric-docs-scraper",
+  "version": "1.0.0",
+  "description": "Scrapes Twilio Alphanumeric Sender ID documentation and saves to Airtable",
+  "main": "scraper.js",
+  "scripts": {
+    "start": "node scraper.js",
+    "test": "node scraper.js"
+  },
+  "keywords": [
+    "twilio",
+    "scraper",
+    "airtable"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "airtable": "^0.12.2",
+    "dotenv": "^17.3.1",
+    "puppeteer": "^24.15.0"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}
