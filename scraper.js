@@ -4,37 +4,63 @@ const chromium = require('@sparticuz/chromium');
 const Airtable = require('airtable');
 
 // Configuration
-const TWILIO_SECTION_URL = 'https://help.twilio.com/sections/205104768-SMS';
+const TWILIO_SECTIONS = [
+  {
+    name: 'Alphanumeric Sender ID',
+    tableName: 'Alphanumeric Guidelines',
+    url: 'https://help.twilio.com/sections/205104768-SMS',
+    pattern: /Documents Required and Instructions to Register Your Alphanumeric Sender ID in/i,
+    countryExtractor: (title) => {
+      // "Documents Required and Instructions to Register Your Alphanumeric Sender ID in Thailand"
+      const match = title.match(/in\s+([A-Za-z\s]+)$/i);
+      return match ? match[1].trim() : null;
+    }
+  },
+  {
+    name: 'Short Code',
+    tableName: 'Short Code Best Practices',
+    url: 'https://help.twilio.com/sections/205112927-Short-Codes',
+    pattern: /(.+?)\s+Short Code Best Practices$/i,
+    countryExtractor: (title) => {
+      // "Argentina Short Code Best Practices"
+      const match = title.match(/^(.+?)\s+Short Code Best Practices$/i);
+      return match ? match[1].trim() : null;
+    }
+  }
+];
+
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
-const AIRTABLE_TABLE_NAME = process.env.AIRTABLE_TABLE_NAME || 'Alphanumeric Sender ID Docs';
 
 // Initialize Airtable
 const base = new Airtable({ apiKey: AIRTABLE_API_KEY }).base(AIRTABLE_BASE_ID);
 
 /**
- * Extract country name from article title
- * Example: "Documents Required and Instructions to Register Your Alphanumeric Sender ID in Thailand" -> "Thailand"
+ * Extract country name, type, and table name from article title
+ * Returns { country, type, tableName } or null if no match
  */
-function extractCountryFromTitle(title) {
-  const match = title.match(/in\s+([A-Za-z\s]+)$/i);
-  return match ? match[1].trim() : null;
-}
-
-/**
- * Check if article title matches the required pattern
- */
-function matchesPattern(title) {
-  const pattern = /Documents Required and Instructions to Register Your Alphanumeric Sender ID in/i;
-  return pattern.test(title);
+function parseArticleTitle(title) {
+  for (const section of TWILIO_SECTIONS) {
+    if (section.pattern.test(title)) {
+      const country = section.countryExtractor(title);
+      if (country) {
+        return {
+          country,
+          type: section.name,
+          tableName: section.tableName
+        };
+      }
+    }
+  }
+  return null;
 }
 
 /**
  * Scrape the main section page to get article links (handles JavaScript pagination)
  */
-async function getArticleLinks(page) {
-  console.log('Loading main section page...');
-  await page.goto(TWILIO_SECTION_URL, { waitUntil: 'networkidle2', timeout: 30000 });
+async function getArticleLinks(page, sectionUrl, sectionName) {
+  console.log(`\nLoading ${sectionName} section: ${sectionUrl}`);
+  await page.goto(sectionUrl, { waitUntil: 'networkidle2', timeout: 30000 });
 
   // Wait for articles to load
   await page.waitForSelector('a[href*="/articles/"]', { timeout: 10000 });
@@ -155,9 +181,9 @@ async function getArticleLinks(page) {
 /**
  * Check if article already exists in Airtable and return the record if found
  */
-async function getExistingRecord(countryName) {
+async function getExistingRecord(countryName, tableName) {
   try {
-    const records = await base(AIRTABLE_TABLE_NAME)
+    const records = await base(tableName)
       .select({
         filterByFormula: `{Country} = '${countryName}'`,
         maxRecords: 1
@@ -166,7 +192,7 @@ async function getExistingRecord(countryName) {
 
     return records.length > 0 ? records[0] : null;
   } catch (error) {
-    console.error(`Error checking if article exists for ${countryName}:`, error.message);
+    console.error(`Error checking if article exists for ${countryName} in ${tableName}:`, error.message);
     return null;
   }
 }
@@ -174,14 +200,14 @@ async function getExistingRecord(countryName) {
 /**
  * Save or update article in Airtable
  */
-async function saveToAirtable(countryName, articleUrl) {
+async function saveToAirtable(countryName, tableName, type, articleUrl) {
   try {
     // Check if record already exists
-    const existingRecord = await getExistingRecord(countryName);
+    const existingRecord = await getExistingRecord(countryName, tableName);
 
     if (existingRecord) {
       // Update existing record
-      await base(AIRTABLE_TABLE_NAME).update([
+      await base(tableName).update([
         {
           id: existingRecord.id,
           fields: {
@@ -190,10 +216,10 @@ async function saveToAirtable(countryName, articleUrl) {
           }
         }
       ]);
-      console.log(`✓ Updated: ${countryName} - ${articleUrl}`);
+      console.log(`✓ Updated: ${countryName} (${type})`);
     } else {
       // Create new record
-      await base(AIRTABLE_TABLE_NAME).create([
+      await base(tableName).create([
         {
           fields: {
             Country: countryName,
@@ -201,10 +227,10 @@ async function saveToAirtable(countryName, articleUrl) {
           }
         }
       ]);
-      console.log(`✓ Created: ${countryName} - ${articleUrl}`);
+      console.log(`✓ Created: ${countryName} (${type})`);
     }
   } catch (error) {
-    console.error(`Error saving to Airtable for ${countryName}:`, error.message);
+    console.error(`Error saving to Airtable for ${countryName} (${type}):`, error.message);
     throw error;
   }
 }
@@ -245,30 +271,50 @@ async function main() {
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
 
-    // Get all article links from the section page
-    const articles = await getArticleLinks(page);
+    let totalProcessed = 0;
+    let totalCreated = 0;
+    let totalUpdated = 0;
 
-    // Filter articles matching the pattern
-    const matchingArticles = articles.filter(article => matchesPattern(article.title));
-    console.log(`Found ${matchingArticles.length} articles matching the pattern`);
+    // Loop through each section (Alphanumeric and Short Code)
+    for (const section of TWILIO_SECTIONS) {
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`Processing ${section.name} articles`);
+      console.log('='.repeat(60));
 
-    // Process each matching article
-    for (const article of matchingArticles) {
-      const countryName = extractCountryFromTitle(article.title);
+      // Get all article links from this section
+      const articles = await getArticleLinks(page, section.url, section.name);
 
-      if (!countryName) {
-        console.log(`Could not extract country from: ${article.title}`);
-        continue;
+      // Filter and parse articles matching the pattern
+      const matchingArticles = [];
+      for (const article of articles) {
+        const parsed = parseArticleTitle(article.title);
+        if (parsed && parsed.type === section.name) {
+          matchingArticles.push({
+            ...article,
+            country: parsed.country,
+            type: parsed.type,
+            tableName: parsed.tableName
+          });
+        }
       }
 
-      try {
-        await saveToAirtable(countryName, article.url);
-      } catch (error) {
-        console.error(`Error processing ${countryName}:`, error.message);
+      console.log(`\nFound ${matchingArticles.length} ${section.name} articles matching the pattern\n`);
+
+      // Process each matching article
+      for (const article of matchingArticles) {
+        try {
+          await saveToAirtable(article.country, article.tableName, article.type, article.url);
+          totalProcessed++;
+        } catch (error) {
+          console.error(`Error processing ${article.country} (${article.type}):`, error.message);
+        }
       }
     }
 
+    console.log('\n' + '='.repeat(60));
     console.log('Scraping completed successfully!');
+    console.log(`Total articles processed: ${totalProcessed}`);
+    console.log('='.repeat(60));
   } catch (error) {
     console.error('Fatal error:', error);
     process.exit(1);

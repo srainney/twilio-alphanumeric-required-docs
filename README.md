@@ -1,14 +1,21 @@
-# Twilio Alphanumeric Sender ID Documentation Scraper
+# Twilio Country Guidelines Documentation Scraper
 
-Scrapes Twilio help articles about "Documents Required and Instructions to Register Your Alphanumeric Sender ID" for various countries and saves them to Airtable.
+Scrapes Twilio help articles for Alphanumeric Sender ID and Short Code guidelines for various countries and saves them to Airtable.
 
 ## Features
 
-- Scrapes https://help.twilio.com/sections/205104768-SMS for relevant articles (124+ articles)
+- Scrapes two Twilio help sections:
+  - **Alphanumeric Sender ID**: https://help.twilio.com/sections/205104768-SMS (34+ countries)
+  - **Short Code Best Practices**: https://help.twilio.com/sections/205112927-Short-Codes
 - Handles JavaScript-based pagination to capture all pages
-- Filters articles matching the pattern: "Documents Required and Instructions to Register Your Alphanumeric Sender ID in [Country]"
+- Filters articles matching specific patterns:
+  - "Documents Required and Instructions to Register Your Alphanumeric Sender ID in [Country]"
+  - "[Country] Short Code Best Practices"
 - Extracts country name and article link
-- Saves to Airtable with automatic updates (creates new or updates existing records)
+- Saves to separate Airtable tables based on type:
+  - "Alphanumeric Guidelines" table
+  - "Short Code Best Practices" table
+- Automatic updates (creates new or updates existing records)
 - Runs on Heroku with scheduled execution
 
 ## Prerequisites
@@ -32,9 +39,14 @@ cp .env.example .env
 3. Configure your environment variables in `.env`:
    - `AIRTABLE_API_KEY`: Your Airtable API key (from https://airtable.com/account)
    - `AIRTABLE_BASE_ID`: Your Airtable base ID (from the URL: airtable.com/BASE_ID/...)
-   - `AIRTABLE_TABLE_NAME`: Name of your table (default: "Alphanumeric Sender ID Docs")
 
-4. Set up your Airtable table with these columns:
+4. Set up your Airtable base with **two tables**:
+
+   **Table 1: "Alphanumeric Guidelines"**
+   - **Country** (Single line text)
+   - **Link** (URL)
+
+   **Table 2: "Short Code Best Practices"**
    - **Country** (Single line text)
    - **Link** (URL)
 
@@ -60,7 +72,6 @@ heroku buildpacks:add heroku/nodejs
 ```bash
 heroku config:set AIRTABLE_API_KEY=your_api_key
 heroku config:set AIRTABLE_BASE_ID=your_base_id
-heroku config:set AIRTABLE_TABLE_NAME="Alphanumeric Sender ID Docs"
 ```
 
 4. Deploy:
@@ -83,17 +94,28 @@ In the Heroku Scheduler dashboard, add a new job:
 
 ## How It Works
 
-1. Launches a headless Chrome browser using Puppeteer
-2. Navigates to the Twilio SMS help section
-3. Pages through all results (handles JavaScript-based pagination)
-4. Extracts all article links matching the naming pattern
-5. For each matching article:
-   - Extracts the country name from the title
-   - Saves country and link to Airtable (updates if already exists)
+1. Launches a headless Chrome browser using Puppeteer with @sparticuz/chromium
+2. Loops through two Twilio help sections:
+   - Alphanumeric Sender ID section
+   - Short Code Best Practices section
+3. For each section:
+   - Pages through all results (handles JavaScript-based pagination)
+   - Extracts all article links matching the naming pattern
+   - Parses country name from article title
+   - Saves to the appropriate Airtable table (updates if already exists)
 
 ## Airtable Schema
 
-Your Airtable table should have these fields:
+Your Airtable base should have **two tables**, each with the same structure:
+
+### Table 1: "Alphanumeric Guidelines"
+
+| Field Name | Field Type | Description |
+|------------|------------|-------------|
+| Country | Single line text | Country name extracted from article title |
+| Link | URL | Direct link to the Twilio help article |
+
+### Table 2: "Short Code Best Practices"
 
 | Field Name | Field Type | Description |
 |------------|------------|-------------|

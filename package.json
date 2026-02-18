@@ -1,7 +1,7 @@
 {
-  "name": "twilio-alphanumeric-docs-scraper",
-  "version": "1.0.0",
-  "description": "Scrapes Twilio Alphanumeric Sender ID documentation and saves to Airtable",
+  "name": "twilio-country-guidelines-scraper",
+  "version": "2.0.0",
+  "description": "Scrapes Twilio Alphanumeric Sender ID and Short Code documentation for various countries and saves to Airtable",
   "main": "scraper.js",
   "scripts": {
     "start": "node scraper.js",
