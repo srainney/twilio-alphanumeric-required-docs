@@ -15,11 +15,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@sparticuz/chromium": "^143.0.4",
     "airtable": "^0.12.2",
     "dotenv": "^17.3.1",
-    "puppeteer": "^24.15.0"
+    "puppeteer-core": "^24.15.0"
   },
   "engines": {
-    "node": ">=18.x"
+    "node": ">=20.x"
   }
 }

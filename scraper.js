@@ -1,5 +1,6 @@
 require('dotenv').config();
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 const Airtable = require('airtable');
 
 // Configuration
@@ -217,44 +218,26 @@ async function main() {
   try {
     console.log('Starting scraper...');
 
-    // Launch browser with Heroku-compatible settings
+    // Launch browser with Heroku-compatible settings using @sparticuz/chromium
+    const isProduction = process.env.NODE_ENV === 'production' || !!process.env.DYNO;
+
     const launchOptions = {
-      headless: 'new',
-      args: [
+      args: isProduction ? chromium.args : [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-accelerated-2d-canvas',
-        '--disable-background-networking',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-breakpad',
-        '--disable-client-side-phishing-detection',
-        '--disable-component-update',
-        '--disable-default-apps',
-        '--disable-extensions',
-        '--disable-features=AudioServiceOutOfProcess',
-        '--disable-hang-monitor',
-        '--disable-ipc-flooding-protection',
-        '--disable-popup-blocking',
-        '--disable-prompt-on-repost',
-        '--disable-renderer-backgrounding',
-        '--disable-sync',
-        '--disable-translate',
-        '--metrics-recording-only',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--mute-audio',
-        '--hide-scrollbars'
-      ]
+        '--disable-gpu'
+      ],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: isProduction
+        ? await chromium.executablePath()
+        : process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      headless: chromium.headless
     };
 
-    // Use Chrome installed by Heroku buildpack
-    // The jontewks/puppeteer buildpack sets CHROME_BIN environment variable
-    if (process.env.CHROME_BIN) {
-      console.log('Using Chrome from buildpack:', process.env.CHROME_BIN);
-      launchOptions.executablePath = process.env.CHROME_BIN;
+    console.log('Launching browser...');
+    if (isProduction) {
+      console.log('Using @sparticuz/chromium for Heroku');
     }
 
     browser = await puppeteer.launch(launchOptions);
