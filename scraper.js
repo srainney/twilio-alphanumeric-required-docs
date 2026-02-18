@@ -20,10 +20,13 @@ const TWILIO_SECTIONS = [
     name: 'Short Code',
     tableName: 'Short Code Best Practices',
     url: 'https://help.twilio.com/sections/205112927-Short-Codes',
-    pattern: /(.+?)\s+Short Code Best Practices$/i,
+    pattern: /(.+?)\s+Short Codes?\s+Best Practi[sc]es$/i,
     countryExtractor: (title) => {
+      // Matches:
       // "Argentina Short Code Best Practices"
-      const match = title.match(/^(.+?)\s+Short Code Best Practices$/i);
+      // "Mexico Short Codes Best Practices" (plural)
+      // "Swedish Short Code Best Practises" (British spelling)
+      const match = title.match(/^(.+?)\s+Short Codes?\s+Best Practi[sc]es$/i);
       return match ? match[1].trim() : null;
     }
   }
