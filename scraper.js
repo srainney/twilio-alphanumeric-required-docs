@@ -224,12 +224,36 @@ async function main() {
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--disable-accelerated-2d-canvas',
+        '--disable-background-networking',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-breakpad',
+        '--disable-client-side-phishing-detection',
+        '--disable-component-update',
+        '--disable-default-apps',
+        '--disable-extensions',
+        '--disable-features=AudioServiceOutOfProcess',
+        '--disable-hang-monitor',
+        '--disable-ipc-flooding-protection',
+        '--disable-popup-blocking',
+        '--disable-prompt-on-repost',
+        '--disable-renderer-backgrounding',
+        '--disable-sync',
+        '--disable-translate',
+        '--metrics-recording-only',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--mute-audio',
+        '--hide-scrollbars'
       ]
     };
 
     // Use Chrome installed by Heroku buildpack
+    // The jontewks/puppeteer buildpack sets CHROME_BIN environment variable
     if (process.env.CHROME_BIN) {
+      console.log('Using Chrome from buildpack:', process.env.CHROME_BIN);
       launchOptions.executablePath = process.env.CHROME_BIN;
     }
 
