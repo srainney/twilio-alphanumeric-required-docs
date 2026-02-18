@@ -217,8 +217,8 @@ async function main() {
   try {
     console.log('Starting scraper...');
 
-    // Launch browser
-    browser = await puppeteer.launch({
+    // Launch browser with Heroku-compatible settings
+    const launchOptions = {
       headless: 'new',
       args: [
         '--no-sandbox',
@@ -226,7 +226,14 @@ async function main() {
         '--disable-dev-shm-usage',
         '--disable-gpu'
       ]
-    });
+    };
+
+    // Use Chrome installed by Heroku buildpack
+    if (process.env.CHROME_BIN) {
+      launchOptions.executablePath = process.env.CHROME_BIN;
+    }
+
+    browser = await puppeteer.launch(launchOptions);
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
